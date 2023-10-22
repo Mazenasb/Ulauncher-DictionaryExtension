@@ -1,4 +1,4 @@
 [
-  {"required_api_version": "2", "commit": "your_specific_commit_hash"},
-  {"required_api_version": "3", "commit": "future_v3_api"}
+  {"required_api_version": "2", "commit": "main"},
+  {"required_api_version": "3", "commit": "main"}
 ]
