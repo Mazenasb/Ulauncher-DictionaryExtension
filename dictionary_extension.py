@@ -1,13 +1,15 @@
 import json
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import quote
-from ulauncher.api.client.EventListener import EventListener
+import logging
 from ulauncher.api.client.Extension import Extension
-from ulauncher.api.shared.action.CopyToClipboardAction import CopyToClipboardAction
-from ulauncher.api.shared.action.RenderResultListAction import RenderResultListAction
+from ulauncher.api.client.EventListener import EventListener
 from ulauncher.api.shared.event import KeywordQueryEvent
 from ulauncher.api.shared.item.ExtensionResultItem import ExtensionResultItem
+from ulauncher.api.shared.action.RenderResultListAction import RenderResultListAction
+import requests
+from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
+
 
 class DictionaryExtension(Extension):
 
@@ -15,47 +17,29 @@ class DictionaryExtension(Extension):
         super(DictionaryExtension, self).__init__()
         self.subscribe(KeywordQueryEvent, KeywordQueryEventListener())
 
+
 class KeywordQueryEventListener(EventListener):
 
-    API_BASE_URL = "https://www.oxfordlearnersdictionaries.com/definition/english/"
-    
     def on_event(self, event, extension):
-        query = event.get_argument().strip()
-        if not query:
-            return RenderResultListAction([ExtensionResultItem(
-                icon='images/icon.png',
-                name='No input provided',
-                on_enter=CopyToClipboardAction('')
-            )])
+        query = event.get_argument() or ""
+        meaning = get_word_meaning(query)
+        item = ExtensionResultItem(icon='images/icon.png',
+                                   name=meaning,
+                                   on_enter=None)
+        return RenderResultListAction([item])
 
-        word_url = self.API_BASE_URL + quote(query.lower())
-        response = requests.get(word_url)
 
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            meanings = soup.find_all(class_='def')
-            if meanings:
-                meaning_text = meanings[0].text.strip()
-                items = [
-                    ExtensionResultItem(
-                        icon='images/icon.png',
-                        name=f'{query.capitalize()}: {meaning_text}',
-                        on_enter=CopyToClipboardAction(meaning_text)
-                    )
-                ]
-                return RenderResultListAction(items)
-            else:
-                return RenderResultListAction([ExtensionResultItem(
-                    icon='images/icon.png',
-                    name=f'Meaning not found for "{query}"',
-                    on_enter=CopyToClipboardAction('')
-                )])
-        else:
-            return RenderResultListAction([ExtensionResultItem(
-                icon='images/icon.png',
-                name='Failed to fetch data',
-                on_enter=CopyToClipboardAction('')
-            )])
+def get_word_meaning(word):
+    url = f"https://www.lexico.com/en/definition/{word}"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    meaning_div = soup.find('span', class_='ind')
+    if meaning_div:
+        meaning = meaning_div.text.strip()
+        return meaning
+    else:
+        return "Meaning not found."
+
 
 if __name__ == '__main__':
     DictionaryExtension().run()
